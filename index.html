@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Puzzle Locker</title>
+    <style>
+        :root {
+            --primary: #00ff41;
+            --danger: #ff3333;
+            --bg: #0d0d0d;
+            --panel: #141414;
+            --text: #cccccc;
+            --input-bg: #000;
+            --border: #333;
+        }
+
+        body {
+            font-family: 'Consolas', 'Monaco', monospace;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 15px;
+        }
+
+        .container {
+            background: var(--panel);
+            padding: 1.5rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-shadow: 0 0 30px rgba(0, 255, 65, 0.05);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 3px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+        }
+
+        h1 {
+            margin-top: 0;
+            color: var(--primary);
+            font-size: 1.2rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        /* === FORMS === */
+        .input-group {
+            margin-bottom: 1rem;
+            text-align: left;
+        }
+
+        label {
+            display: block;
+            font-size: 0.7rem;
+            font-weight: bold;
+            margin-bottom: 0.4rem;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input,
+        select,
+        textarea {
+            width: 100%;
+            padding: 10px;
+            background: var(--input-bg);
+            border: 1px solid var(--border);
+            color: var(--primary);
+            box-sizing: border-box;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        input:focus,
+        select:focus,
+        textarea:focus {
+            border-color: var(--primary);
+            outline: none;
+        }
+
+        button {
+            background: rgba(0, 255, 65, 0.1);
+            color: var(--primary);
+            border: 1px solid var(--primary);
+            padding: 12px;
+            font-family: inherit;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 10px;
+            transition: 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        /* === PUZZLE BASICS === */
+        .puzzle-container {
+            margin: 20px 0;
+            min-height: 200px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .instruction {
+            font-size: 0.8rem;
+            color: #888;
+            margin-bottom: 15px;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        /* === 1. LIGHTS OUT === */
+        #lights-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            width: 180px;
+        }
+
+        .light-cell {
+            aspect-ratio: 1;
+            background: #222;
+            border: 1px solid #444;
+            cursor: pointer;
+        }
+
+        .light-cell.active {
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary);
+            border-color: var(--primary);
+        }
+
+        /* === 2. MEMORY === */
+        #mem-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            width: 220px;
+        }
+
+        .mem-cell {
+            aspect-ratio: 1;
+            background: #222;
+            border: 1px solid #444;
+            cursor: pointer;
+        }
+
+        .mem-cell.flash {
+            background: #fff !important;
+            box-shadow: 0 0 15px #fff;
+        }
+
+        /* === 3. CODE BREAKER === */
+        .code-display {
+            font-size: 1.5rem;
+            letter-spacing: 5px;
+            margin-bottom: 10px;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 5px;
+            width: 200px;
+            margin-bottom: 10px;
+        }
+
+        .key-btn {
+            padding: 10px;
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: white;
+            cursor: pointer;
+        }
+
+        .key-btn:hover {
+            border-color: white;
+        }
+
+        .history-log {
+            width: 100%;
+            max-height: 80px;
+            overflow-y: auto;
+            font-size: 0.8rem;
+            text-align: left;
+            background: #000;
+            border: 1px solid #333;
+            padding: 5px;
+            margin-top: 10px;
+        }
+
+        .log-entry {
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px solid #222;
+            padding: 2px 0;
+        }
+
+        /* === 4. SLIDER === */
+        #slider-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 2px;
+            width: 210px;
+            background: #333;
+            border: 2px solid #333;
+        }
+
+        .slide-tile {
+            aspect-ratio: 1;
+            background: #000;
+            color: var(--primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            border: 1px solid #1a1a1a;
+        }
+
+        .slide-tile.empty {
+            background: #111;
+            cursor: default;
+            border: none;
+        }
+
+        /* === RESULTS AREA === */
+        #result-area {
+            display: none;
+            margin-top: 2rem;
+            border-top: 1px dashed #444;
+            padding-top: 20px;
+            text-align: left;
+            animation: fadeIn 0.5s;
+        }
+
+        .secret-content {
+            white-space: pre-wrap;
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+        }
+
+        /* Media Containers */
+        .media-box {
+            margin-top: 15px;
+            border: 1px solid #333;
+            padding: 5px;
+            background: #000;
+        }
+
+        img {
+            max-width: 100%;
+            display: block;
+        }
+
+        .video-container {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+
+        <div id="creator-view">
+            <h1>Puzzle Locker</h1>
+
+            <div class="input-group">
+                <label>1. Text Message</label>
+                <textarea id="secret-msg" rows="2" placeholder="Confidential info..."></textarea>
+            </div>
+
+            <div class="input-group">
+                <label>2. Image URL (Optional)</label>
+                <input type="text" id="secret-img" placeholder="https://example.com/pic.jpg">
+            </div>
+
+            <div class="input-group">
+                <label>3. Video URL (Optional)</label>
+                <input type="text" id="secret-vid" placeholder="YouTube, Vimeo, or .mp4 link">
+            </div>
+
+            <div class="input-group">
+                <label>4. Security Protocol</label>
+                <select id="puzzle-type">
+                    <option value="code_breaker">🔢 Code Breaker (Deduction)</option>
+                    <option value="slider">🔳 8-Block Slider (Spatial)</option>
+                    <option value="lights_out">💡 Lights Out (Logic)</option>
+                    <option value="memory">🧠 Memory Grid (Recall)</option>
+                </select>
+            </div>
+
+            <button onclick="generateLink()">Initialize Link</button>
+
+            <div id="link-area" class="input-group hidden" style="margin-top:20px;">
+                <input type="text" id="final-link" readonly onclick="this.select()">
+                <div style="font-size:0.7rem; color:#555; margin-top:5px;">Protocol ready. Copy link.</div>
+            </div>
+        </div>
+
+
+        <div id="solver-view" class="hidden">
+            <h1>Access Control</h1>
+            <div id="instruction-text" class="instruction">Authenticating...</div>
+
+            <div id="game-lights" class="puzzle-container hidden">
+                <div id="lights-grid"></div>
+            </div>
+            <div id="game-memory" class="puzzle-container hidden">
+                <div id="mem-grid"></div><button id="start-mem-btn" onclick="startMemorySeq()">Begin</button>
+            </div>
+            <div id="game-code" class="puzzle-container hidden">
+                <div id="code-display" class="code-display">_ _ _ _</div>
+                <div class="keypad">
+                    <div class="key-btn" onclick="pressKey(1)">1</div>
+                    <div class="key-btn" onclick="pressKey(2)">2</div>
+                    <div class="key-btn" onclick="pressKey(3)">3</div>
+                    <div class="key-btn" onclick="pressKey(4)">4</div>
+                    <div class="key-btn" onclick="pressKey(5)">5</div>
+                    <div class="key-btn" onclick="pressKey(6)">6</div>
+                    <div class="key-btn" onclick="pressKey(7)">7</div>
+                    <div class="key-btn" onclick="pressKey(8)">8</div>
+                    <div class="key-btn" onclick="pressKey(9)">9</div>
+                    <div class="key-btn" onclick="clearKey()">C</div>
+                    <div class="key-btn" onclick="pressKey(0)">0</div>
+                    <div class="key-btn" style="color:var(--primary)" onclick="submitCode()">⏎</div>
+                </div>
+                <div id="code-history" class="history-log"></div>
+            </div>
+            <div id="game-slider" class="puzzle-container hidden">
+                <div id="slider-grid"></div>
+            </div>
+
+            <div id="result-area">
+                <div style="color:var(--primary); font-weight:bold; margin-bottom:10px;">>> ACCESS GRANTED</div>
+                <div id="revealed-msg" class="secret-content"></div>
+
+                <div id="img-wrapper" class="media-box hidden">
+                    <img id="revealed-img" onerror="this.style.display='none'">
+                </div>
+
+                <div id="vid-wrapper" class="media-box hidden">
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const mode = params.has('d') ? 'solver' : 'creator';
+        let solverData = {};
+
+        // Game States
+        let lightsState = [], memSeq = [], memStep = 0, secretCode = [], currentGuess = "", sliderState = [1, 2, 3, 4, 5, 6, 7, 8, 0];
+
+        if (mode === 'solver') {
+            document.getElementById('creator-view').classList.add('hidden');
+            document.getElementById('solver-view').classList.remove('hidden');
+            initSolver();
+        }
+
+        // === CREATOR ===
+        function generateLink() {
+            const msg = document.getElementById('secret-msg').value;
+            const img = document.getElementById('secret-img').value;
+            const vid = document.getElementById('secret-vid').value;
+            const type = document.getElementById('puzzle-type').value;
+
+            if (!msg && !img && !vid) return alert("Error: No content to hide.");
+
+            const payload = { m: msg, i: img, v: vid, t: type };
+            const encoded = btoa(JSON.stringify(payload));
+            const link = `${window.location.href.split('?')[0]}?d=${encoded}`;
+
+            document.getElementById('final-link').value = link;
+            document.getElementById('link-area').classList.remove('hidden');
+        }
+
+        // === SOLVER ===
+        function initSolver() {
+            try {
+                solverData = JSON.parse(atob(params.get('d')));
+                const type = solverData.t;
+                if (type === 'lights_out') initLights();
+                else if (type === 'memory') initMemory();
+                else if (type === 'code_breaker') initCodeBreaker();
+                else if (type === 'slider') initSlider();
+            } catch (e) {
+                document.getElementById('instruction-text').innerText = "LINK CORRUPT";
+            }
+        }
+
+        // === UNLOCK LOGIC (Handles Video/Image) ===
+        function unlock() {
+            document.querySelectorAll('.puzzle-container').forEach(e => e.classList.add('hidden'));
+            document.getElementById('instruction-text').style.display = 'none';
+
+            const res = document.getElementById('result-area');
+            res.style.display = 'block';
+            document.getElementById('revealed-msg').innerText = solverData.m || "";
+
+            // Handle Image
+            if (solverData.i) {
+                document.getElementById('img-wrapper').classList.remove('hidden');
+                document.getElementById('revealed-img').src = solverData.i;
+            }
+
+            // Handle Video
+            if (solverData.v) {
+                const vWrap = document.getElementById('vid-wrapper');
+                vWrap.classList.remove('hidden');
+                const url = solverData.v;
+
+                let html = "";
+                if (url.includes('youtube.com') || url.includes('youtu.be')) {
+                    // YouTube Embed
+                    let vidId = "";
+                    if (url.includes('v=')) vidId = url.split('v=')[1].split('&')[0];
+                    else if (url.includes('youtu.be/')) vidId = url.split('youtu.be/')[1];
+                    html = `<div class="video-container"><iframe src="https://www.youtube.com/embed/${vidId}" allowfullscreen></iframe></div>`;
+                } else if (url.includes('vimeo.com')) {
+                    // Vimeo Embed
+                    let vidId = url.split('vimeo.com/')[1];
+                    html = `<div class="video-container"><iframe src="https://player.vimeo.com/video/${vidId}" allowfullscreen></iframe></div>`;
+                } else {
+                    // Direct File (mp4/webm)
+                    html = `<video autoplay controls><source src="${url}" type="video/mp4">Your browser does not support video.</video>`;
+                }
+                vWrap.innerHTML = html;
+            }
+        }
+
+        // === PUZZLE 1: LIGHTS OUT ===
+        function initLights() {
+            document.getElementById('game-lights').classList.remove('hidden');
+            document.getElementById('instruction-text').innerText = "Turn all lights GREEN.";
+            const grid = document.getElementById('lights-grid');
+            lightsState = Array(9).fill(false);
+            for (let i = 0; i < 9; i++) {
+                let d = document.createElement('div'); d.className = 'light-cell'; d.id = `l-${i}`; d.onclick = () => toggleL(i); grid.appendChild(d);
+            }
+            for (let i = 0; i < 15; i++) toggleL_Log(Math.floor(Math.random() * 9));
+            renderL();
+        }
+        function toggleL(i) { toggleL_Log(i); renderL(); if (lightsState.every(x => x)) unlock(); }
+        function toggleL_Log(i) {
+            lightsState[i] = !lightsState[i];
+            if (i % 3 > 0) lightsState[i - 1] = !lightsState[i - 1];
+            if (i % 3 < 2) lightsState[i + 1] = !lightsState[i + 1];
+            if (i >= 3) lightsState[i - 3] = !lightsState[i - 3];
+            if (i < 6) lightsState[i + 3] = !lightsState[i + 3];
+        }
+        function renderL() { lightsState.forEach((v, i) => document.getElementById(`l-${i}`).classList.toggle('active', v)); }
+
+        // === PUZZLE 2: MEMORY ===
+        function initMemory() {
+            document.getElementById('game-memory').classList.remove('hidden');
+            document.getElementById('instruction-text').innerText = "Memorize the sequence.";
+            const grid = document.getElementById('mem-grid');
+            for (let i = 0; i < 16; i++) {
+                let d = document.createElement('div'); d.className = 'mem-cell'; d.id = `m-${i}`; d.onclick = () => checkMem(i); grid.appendChild(d);
+            }
+        }
+        function startMemorySeq() {
+            document.getElementById('start-mem-btn').classList.add('hidden');
+            memSeq = []; memStep = 0;
+            for (let i = 0; i < 5; i++) memSeq.push(Math.floor(Math.random() * 16));
+            let i = 0; let t = setInterval(() => {
+                if (i >= 5) { clearInterval(t); document.getElementById('instruction-text').innerText = "REPEAT SEQUENCE"; return; }
+                flashMem(memSeq[i]); i++;
+            }, 600);
+        }
+        function flashMem(i) { let e = document.getElementById(`m-${i}`); e.classList.add('flash'); setTimeout(() => e.classList.remove('flash'), 300); }
+        function checkMem(i) {
+            if (!memSeq.length) return;
+            flashMem(i);
+            if (i === memSeq[memStep]) { memStep++; if (memStep === memSeq.length) unlock(); }
+            else { alert("Fail."); memSeq = []; document.getElementById('start-mem-btn').classList.remove('hidden'); }
+        }
+
+        // === PUZZLE 3: CODE BREAKER ===
+        function initCodeBreaker() {
+            document.getElementById('game-code').classList.remove('hidden');
+            document.getElementById('instruction-text').innerText = "Crack 4-digit code. (Green=Position, Yellow=Digit)";
+            secretCode = []; while (secretCode.length < 4) { let n = Math.floor(Math.random() * 10).toString(); if (!secretCode.includes(n)) secretCode.push(n); }
+            currentGuess = ""; updateCodeDisp();
+        }
+        function pressKey(n) { if (currentGuess.length < 4) { currentGuess += n; updateCodeDisp(); } }
+        function clearKey() { currentGuess = ""; updateCodeDisp(); }
+        function updateCodeDisp() { let s = ""; for (let i = 0; i < 4; i++) s += (currentGuess[i] || "_") + " "; document.getElementById('code-display').innerText = s; }
+        function submitCode() {
+            if (currentGuess.length !== 4) return;
+            let b = 0, c = 0, sc = [...secretCode], gc = currentGuess.split('');
+            for (let i = 0; i < 4; i++) if (gc[i] === sc[i]) { b++; sc[i] = null; gc[i] = 'X'; }
+            for (let i = 0; i < 4; i++) if (gc[i] !== 'X' && sc.includes(gc[i])) { c++; sc[sc.indexOf(gc[i])] = null; }
+
+            let log = document.getElementById('code-history');
+            let div = document.createElement('div'); div.className = 'log-entry';
+            div.innerHTML = `<span>${currentGuess}</span><span>${"🟢".repeat(b)}${"🟡".repeat(c)}</span>`;
+            log.prepend(div);
+
+            if (b === 4) unlock(); else { currentGuess = ""; updateCodeDisp(); }
+        }
+
+        // === PUZZLE 4: SLIDER ===
+        function initSlider() {
+            document.getElementById('game-slider').classList.remove('hidden');
+            document.getElementById('instruction-text').innerText = "Order tiles 1-8.";
+            for (let i = 0; i < 100; i++) {
+                let z = sliderState.indexOf(0), n = [];
+                if (z % 3 > 0) n.push(z - 1); if (z % 3 < 2) n.push(z + 1); if (z >= 3) n.push(z - 3); if (z < 6) n.push(z + 3);
+                let r = n[Math.floor(Math.random() * n.length)];
+                [sliderState[z], sliderState[r]] = [sliderState[r], sliderState[z]];
+            }
+            renderSlider();
+        }
+        function renderSlider() {
+            let g = document.getElementById('slider-grid'); g.innerHTML = '';
+            sliderState.forEach((v, i) => {
+                let d = document.createElement('div'); d.className = v === 0 ? 'slide-tile empty' : 'slide-tile';
+                d.innerText = v || ''; d.onclick = () => moveSlide(i); g.appendChild(d);
+            });
+        }
+        function moveSlide(i) {
+            let z = sliderState.indexOf(0);
+            let dist = Math.abs(Math.floor(i / 3) - Math.floor(z / 3)) + Math.abs((i % 3) - (z % 3));
+            if (dist === 1) { [sliderState[i], sliderState[z]] = [sliderState[z], sliderState[i]]; renderSlider(); }
+            if (sliderState.join(',') === "1,2,3,4,5,6,7,8,0") unlock();
+        }
+    </script>
+
+</body>
+
+</html>
