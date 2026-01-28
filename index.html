@@ -496,7 +496,7 @@
         // === PUZZLE 1: LIGHTS OUT ===
         function initLights() {
             document.getElementById('game-lights').classList.remove('hidden');
-            document.getElementById('instruction-text').innerText = "Turn all lights GREEN.";
+            document.getElementById('instruction-text').innerText = "Turn all lights Purple.";
             const grid = document.getElementById('lights-grid');
             lightsState = Array(9).fill(false);
             for (let i = 0; i < 9; i++) {
@@ -544,7 +544,7 @@
         // === PUZZLE 3: CODE BREAKER ===
         function initCodeBreaker() {
             document.getElementById('game-code').classList.remove('hidden');
-            document.getElementById('instruction-text').innerText = "Crack 4-digit code. (Green=Position, Yellow=Digit)";
+            document.getElementById('instruction-text').innerText = "Crack 4-digit code. (Purple=Position, Yellow=Digit)";
             secretCode = []; while (secretCode.length < 4) { let n = Math.floor(Math.random() * 10).toString(); if (!secretCode.includes(n)) secretCode.push(n); }
             currentGuess = ""; updateCodeDisp();
         }
@@ -596,3 +596,4 @@
 
 
 </html>
+
