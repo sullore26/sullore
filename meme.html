@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Protocol Omega</title>
+    <style>
+        :root { --bg: #050505; --panel: #0a0a0a; --border: #333; --text: #eee; --accent: #ff0055; --success: #00ff88; --highlight: #00d9ff; --warn: #ffcc00; }
+        body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; user-select: none; }
+        
+        .container { background: var(--panel); width: 100%; max-width: 650px; padding: 2rem; border: 1px solid var(--border); box-shadow: 0 0 60px rgba(0,0,0,0.8); border-radius: 6px; text-align: center; }
+        
+        h1 { margin: 0 0 10px 0; color: var(--highlight); text-transform: uppercase; letter-spacing: 4px; font-weight: 900; border-bottom: 2px solid var(--border); padding-bottom: 10px; display: inline-block; }
+        .sub-header { font-size: 0.8rem; color: #666; margin-bottom: 25px; min-height: 20px; }
+
+        /* === CONTROLS === */
+        .input-group { text-align: left; margin-bottom: 20px; }
+        label { font-size: 0.7rem; font-weight: bold; color: #888; display: block; margin-bottom: 5px; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 12px; background: #000; border: 1px solid #444; color: #fff; font-family: inherit; font-size: 1rem; box-sizing: border-box; transition: 0.2s; }
+        input:focus, select:focus, textarea:focus { border-color: var(--highlight); outline: none; }
+        
+        button { width: 100%; padding: 15px; background: #111; color: var(--highlight); border: 1px solid var(--highlight); font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 15px; transition: 0.2s; }
+        button:hover { background: var(--highlight); color: #000; box-shadow: 0 0 20px var(--highlight); }
+        button:disabled { border-color: #444; color: #444; background: transparent; cursor: not-allowed; box-shadow: none; }
+
+        /* === GAME STAGE === */
+        .game-stage { display: none; padding: 20px; border: 1px solid #222; background: #080808; margin-bottom: 20px; position: relative; }
+        .game-stage.active { display: block; animation: fadeIn 0.5s; }
+
+        /* 1. CHROMA */
+        .chroma-row { display: flex; height: 100px; margin-bottom: 20px; border: 1px solid #444; }
+        .chroma-box { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: rgba(255,255,255,0.5); }
+        input[type=range].chroma-slide { width: 100%; appearance: none; background: #222; height: 4px; margin: 10px 0; border-radius: 2px; }
+        input[type=range].chroma-slide::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: #eee; border-radius: 50%; cursor: pointer; }
+
+        /* 2. STACK */
+        .stack-target { font-size: 3rem; font-weight: bold; color: var(--success); margin-bottom: 5px; }
+        .stack-curr { font-size: 1.5rem; color: #888; margin-bottom: 20px; }
+        .stack-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; max-width: 300px; margin: 0 auto; }
+        .stack-btn { padding: 15px; background: #1a1a1a; border: 1px solid #444; color: #fff; cursor: pointer; font-size: 1.2rem; transition: 0.1s; }
+        .stack-btn:hover { background: #333; border-color: var(--success); color: var(--success); }
+
+        /* 3. PHANTOM (8x8) */
+        #phantom-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 2px; width: 320px; margin: 0 auto; background: #222; border: 2px solid #222; }
+        .p-cell { width: 38px; height: 38px; background: #111; cursor: pointer; transition: 0.1s; }
+        .p-cell.player { background: var(--highlight); box-shadow: 0 0 15px var(--highlight); z-index: 5; }
+        .p-cell.start { border: 1px dashed #555; }
+        .p-cell.end { background: var(--success); }
+        .p-cell.flash { animation: flashRed 0.3s; }
+
+        /* 4. SIGNAL */
+        canvas { background: #000; border: 1px solid #333; width: 100%; height: 180px; }
+        .sig-row { display: flex; gap: 10px; margin-top: 10px; }
+        .sig-box { flex: 1; }
+        input[type=range].sig-knob { width: 100%; appearance: none; background: #333; height: 2px; margin-top: 10px; }
+        input[type=range].sig-knob::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--highlight); border-radius: 50%; cursor: pointer; }
+
+        /* 5. GAMBIT */
+        #chess-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 260px; margin: 0 auto; background: #222; padding: 4px; border: 1px solid #333; }
+        .c-cell { width: 48px; height: 48px; background: #111; display: flex; justify-content: center; align-items: center; cursor: default; font-size: 1.5rem; color: #444; transition: 0.2s; border-radius: 4px; }
+        .c-cell.visited { background: var(--accent); color: #000; }
+        .c-cell.current { background: #fff; color: #000; box-shadow: 0 0 15px #fff; z-index: 5; transform: scale(1.1); }
+        .c-cell.valid { background: rgba(255, 0, 85, 0.15); border: 1px solid var(--accent); cursor: pointer; color: var(--accent); }
+        .c-cell.valid:hover { background: rgba(255, 0, 85, 0.4); box-shadow: 0 0 10px var(--accent); }
+        .gambit-controls { display: flex; gap: 10px; margin-top: 15px; justify-content: center; }
+        .btn-small { margin: 0; padding: 10px; font-size: 0.8rem; width: auto; flex: 1; border-color: #444; color: #888; }
+        .btn-undo { border-color: var(--warn); color: var(--warn); background: rgba(255, 204, 0, 0.1); }
+        .btn-undo:hover { background: var(--warn); color: #000; }
+
+        /* === RESULT === */
+        #victory-area { display: none; margin-top: 30px; border-top: 1px dashed #333; padding-top: 20px; animation: popIn 0.5s; }
+        #final-msg { font-size: 2rem; color: var(--success); font-weight: bold; text-shadow: 0 0 30px var(--success); margin-bottom: 20px; word-wrap: break-word; }
+        .video-box { position: relative; width: 100%; padding-bottom: 56.25%; height: 0; background: #000; border: 1px solid #333; overflow: hidden; }
+        .video-box iframe, .video-box video { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+        
+        .hidden { display: none !important; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes flashRed { 0% { background: var(--accent); } 100% { background: #111; } }
+        @keyframes popIn { 0% { transform: scale(0.8); opacity:0; } 100% { transform: scale(1); opacity:1; } }
+    </style>
+</head>
+<body>
+
+<div id="creator" class="container">
+    <h1>PROTOCOL CONFIG</h1>
+    
+    <div class="input-group">
+        <label>1. Secret Message / Reward Text</label>
+        <textarea id="res-in" rows="2" placeholder="Text to reveal..."></textarea>
+    </div>
+
+    <div class="input-group">
+        <label>2. Video Link (YouTube / .mp4)</label>
+        <input type="text" id="vid-in" placeholder="https://youtube.com/watch?v=...">
+    </div>
+
+    <div class="input-group">
+        <label>3. Select Challenge</label>
+        <select id="puz-type">
+            <option value="chroma">👁️ Blind Chroma</option>
+            <option value="stack">🧮 The Stack</option>
+            <option value="phantom">👻 Phantom Grid</option>
+            <option value="signal">🌊 The Signal</option>
+            <option value="gambit">♞ The Gambit</option>
+        </select>
+    </div>
+
+    <button onclick="genLink()">GENERATE LINK</button>
+
+    <div id="link-box" class="input-group hidden" style="margin-top:20px;">
+        <label>Ready to Deploy:</label>
+        <input type="text" id="out-link" readonly onclick="this.select()">
+    </div>
+</div>
+
+<div id="solver" class="container hidden">
+    <h1 id="title">LOCKED</h1>
+    <div class="sub-header" id="desc">...</div>
+
+    <div id="g-chroma" class="game-stage">
+        <div class="chroma-row"><div id="chroma-target" class="chroma-box">TARGET</div><div id="chroma-user" class="chroma-box">YOUR MIX</div></div>
+        <input type="range" id="sl-r" class="chroma-slide" min="0" max="255" oninput="updChroma()">
+        <input type="range" id="sl-g" class="chroma-slide" min="0" max="255" oninput="updChroma()">
+        <input type="range" id="sl-b" class="chroma-slide" min="0" max="255" oninput="updChroma()">
+        <button onclick="checkChroma()">VERIFY</button>
+    </div>
+
+    <div id="g-stack" class="game-stage">
+        <div class="stack-target"><span id="st-target">0</span></div>
+        <div class="stack-curr">CURRENT: <span id="st-curr" style="color:#fff">0</span></div>
+        <div style="font-size:0.8rem; color:#666; margin-bottom:10px;">Moves: <span id="st-moves">0</span></div>
+        <div class="stack-grid">
+            <div class="stack-btn" id="op-0" onclick="runOp(0)"></div><div class="stack-btn" id="op-1" onclick="runOp(1)"></div>
+            <div class="stack-btn" id="op-2" onclick="runOp(2)"></div><div class="stack-btn" style="border-color:var(--accent); color:var(--accent)" onclick="resetStack()">RESET</div>
+        </div>
+    </div>
+
+    <div id="g-phantom" class="game-stage">
+        <div id="phantom-grid"></div>
+        <p style="font-size:0.8rem; color:#666; margin-top:15px;">Navigate to Green. Walls are invisible.</p>
+    </div>
+
+    <div id="g-signal" class="game-stage">
+        <canvas id="sig-cvs" width="500" height="180"></canvas>
+        <div class="sig-row">
+            <div class="sig-box"><label>FREQ</label><input type="range" id="kn-f" class="sig-knob" min="1" max="100" value="50" oninput="drawSig()"></div>
+            <div class="sig-box"><label>AMP</label><input type="range" id="kn-a" class="sig-knob" min="1" max="100" value="50" oninput="drawSig()"></div>
+            <div class="sig-box"><label>PHASE</label><input type="range" id="kn-p" class="sig-knob" min="1" max="100" value="50" oninput="drawSig()"></div>
+        </div>
+        <button onclick="checkSig()">SYNC WAVEFORM</button>
+    </div>
+
+    <div id="g-gambit" class="game-stage">
+        <div id="chess-grid"></div>
+        <p style="font-size:0.8rem; color:#666; margin-top:10px;">Visit all 25 squares.</p>
+        <div class="gambit-controls">
+            <button id="btn-undo" class="btn-small btn-undo" onclick="undoGambit()">UNDO (1)</button>
+            <button class="btn-small" onclick="resetGambit()">RESET</button>
+        </div>
+    </div>
+
+    <div id="victory-area">
+        <div style="color:var(--highlight); letter-spacing:2px; font-size:0.9rem; margin-bottom:15px;">DECRYPTION COMPLETE</div>
+        <div id="final-msg"></div>
+        <div id="final-video" class="hidden" style="margin-top:20px;"></div>
+    </div>
+</div>
+
+<script>
+    const params = new URLSearchParams(window.location.search);
+    const mode = params.has('d') ? 'solver' : 'creator';
+    let data = {};
+    
+    // VARS
+    let cTarg={r:0,g:0,b:0}, sTarg=0, sCurr=0, sOps=[], sMoves=0, sMax=7; 
+    let pPos=0, pWalls=[]; // 8x8
+    let wTarg={f:0,a:0,p:0};
+    let gGrid=[], gPos=-1, gVis=0, gHist=[], gUsed=false;
+
+    if(mode === 'solver') {
+        document.getElementById('creator').classList.add('hidden');
+        document.getElementById('solver').classList.remove('hidden');
+        initSolver();
+    }
+
+    // === CREATOR ===
+    function genLink() {
+        const r = document.getElementById('res-in').value;
+        const v = document.getElementById('vid-in').value;
+        const t = document.getElementById('puz-type').value;
+        
+        if(!r && !v) return alert("Enter Message or Video.");
+        
+        const d = btoa(JSON.stringify({ r:r, v:v, t:t }));
+        document.getElementById('out-link').value = `${window.location.href.split('?')[0]}?d=${d}`;
+        document.getElementById('link-box').classList.remove('hidden');
+    }
+
+    // === SOLVER ===
+    function initSolver() {
+        try {
+            data = JSON.parse(atob(params.get('d')));
+            const t = data.t;
+            if(t==='chroma') initChroma();
+            else if(t==='stack') initStack();
+            else if(t==='phantom') initPhantom();
+            else if(t==='signal') initSig();
+            else if(t==='gambit') initGambit();
+        } catch(e) { alert("Invalid Link"); }
+    }
+
+    function win() {
+        document.querySelectorAll('.game-stage').forEach(e=>e.classList.remove('active'));
+        document.getElementById('title').innerText = "OPEN";
+        document.getElementById('desc').innerText = "Access Granted.";
+        
+        const vz = document.getElementById('victory-area');
+        vz.style.display = 'block';
+        document.getElementById('final-msg').innerText = data.r || "";
+        
+        if(data.v) {
+            const vb = document.getElementById('final-video');
+            vb.classList.remove('hidden');
+            let url = data.v;
+            let html = "";
+            
+            if(url.includes('youtube') || url.includes('youtu.be')) {
+                let id = url.split('v=')[1] || url.split('/').pop();
+                id = id.split('&')[0];
+                html = `<div class="video-box"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`;
+            } else if(url.match(/\.(mp4|webm|ogg)$/)) {
+                html = `<div class="video-box"><video controls src="${url}"></video></div>`;
+            } else {
+                html = `<a href="${url}" target="_blank" style="color:var(--success); border-bottom:1px solid var(--success); text-decoration:none;">OPEN VIDEO LINK</a>`;
+            }
+            vb.innerHTML = html;
+        }
+    }
+
+    // 1. CHROMA
+    function initChroma() {
+        document.getElementById('g-chroma').classList.add('active'); document.getElementById('title').innerText="BLIND CHROMA";
+        document.getElementById('desc').innerText="Match target. Tolerance: 3%.";
+        cTarg = { r:rInt(25,225), g:rInt(25,225), b:rInt(25,225) };
+        document.getElementById('chroma-target').style.backgroundColor=`rgb(${cTarg.r},${cTarg.g},${cTarg.b})`;
+        ['sl-r','sl-g','sl-b'].forEach(id=>document.getElementById(id).value=rInt(0,255)); updChroma();
+    }
+    function updChroma() { const r=v('sl-r'), g=v('sl-g'), b=v('sl-b'); document.getElementById('chroma-user').style.backgroundColor=`rgb(${r},${g},${b})`; }
+    function checkChroma() {
+        const r=v('sl-r'), g=v('sl-g'), b=v('sl-b');
+        if(Math.sqrt((r-cTarg.r)**2+(g-cTarg.g)**2+(b-cTarg.b)**2)<20) win(); else alert("Mismatch.");
+    }
+
+    // 2. STACK
+    function initStack() {
+        document.getElementById('g-stack').classList.add('active'); document.getElementById('title').innerText="THE STACK";
+        document.getElementById('desc').innerText=`Reach Target in ${sMax} moves.`;
+        const ops = [{t:"+9",f:n=>n+9},{t:"-12",f:n=>n-12},{t:"x3",f:n=>n*3},{t:"x4",f:n=>n*4},{t:"+17",f:n=>n+17}];
+        sOps=[]; while(sOps.length<3) { const o=ops[rInt(0,ops.length)]; if(!sOps.includes(o)) sOps.push(o); }
+        let sim=0; for(let i=0;i<sMax-2;i++) sim=sOps[rInt(0,3)].f(sim); sTarg=sim===0?50:sim;
+        document.getElementById('st-target').innerText=sTarg;
+        for(let i=0;i<3;i++) document.getElementById(`op-${i}`).innerText=sOps[i].t; resetStack();
+    }
+    function runOp(i) {
+        if(sMoves<=0) return; sCurr=sOps[i].f(sCurr); sMoves--; updStack();
+        if(sCurr===sTarg) win(); else if(sMoves===0) setTimeout(()=>alert("Failed."),100);
+    }
+    function resetStack() { sCurr=0; sMoves=sMax; updStack(); }
+    function updStack() { document.getElementById('st-curr').innerText=sCurr; document.getElementById('st-moves').innerText=sMoves; }
+
+    // 3. PHANTOM (8x8)
+    function initPhantom() {
+        document.getElementById('g-phantom').classList.add('active'); document.getElementById('title').innerText="PHANTOM 8x8";
+        document.getElementById('desc').innerText="Invisible Walls.";
+        const g=document.getElementById('phantom-grid'); g.innerHTML='';
+        pWalls=[]; for(let i=1;i<63;i++) if(Math.random()<0.3) pWalls.push(i);
+        pPos=0; for(let i=0;i<64;i++) {
+            let c=document.createElement('div'); c.className='p-cell'; c.id=`pc-${i}`;
+            if(i===0) c.classList.add('start'); if(i===63) c.classList.add('end');
+            c.onclick=()=>movePh(i); g.appendChild(c);
+        } renPh();
+    }
+    function movePh(i) {
+        const r1=Math.floor(pPos/8), c1=pPos%8, r2=Math.floor(i/8), c2=i%8;
+        if(Math.abs(r1-r2)+Math.abs(c1-c2)===1) {
+            if(pWalls.includes(i)) { document.getElementById(`pc-${i}`).classList.add('flash'); setTimeout(()=>document.getElementById(`pc-${i}`).classList.remove('flash'),200); pPos=0; }
+            else { pPos=i; if(pPos===63) win(); } renPh();
+        }
+    }
+    function renPh() { document.querySelectorAll('.p-cell').forEach(e=>e.classList.remove('player')); document.getElementById(`pc-${pPos}`).classList.add('player'); }
+
+    // 4. SIGNAL
+    function initSig() {
+        document.getElementById('g-signal').classList.add('active'); document.getElementById('title').innerText="THE SIGNAL";
+        document.getElementById('desc').innerText="Sync Waveform.";
+        wTarg={f:Math.random()*0.1+0.02, a:Math.random()*40+20, p:Math.random()*6}; drawSig();
+    }
+    function drawSig() {
+        const cvs=document.getElementById('sig-cvs'), ctx=cvs.getContext('2d'), w=cvs.width, h=cvs.height;
+        ctx.clearRect(0,0,w,h); const uF=(v('kn-f')/1000)+0.01, uA=v('kn-a'), uP=(v('kn-p')/100)*6;
+        ctx.beginPath(); ctx.strokeStyle='#ff0055'; ctx.lineWidth=3; for(let x=0;x<w;x++) ctx.lineTo(x, h/2+Math.sin(x*wTarg.f+wTarg.p)*wTarg.a); ctx.stroke();
+        ctx.beginPath(); ctx.strokeStyle='#00d9ff'; ctx.lineWidth=2; for(let x=0;x<w;x++) ctx.lineTo(x, h/2+Math.sin(x*uF+uP)*uA); ctx.stroke();
+    }
+    function checkSig() {
+        const uF=(v('kn-f')/1000)+0.01, uA=v('kn-a'), uP=(v('kn-p')/100)*6;
+        if(Math.abs(uF-wTarg.f)<0.005 && Math.abs(uA-wTarg.a)<5 && Math.abs(uP-wTarg.p)<0.5) win(); else alert("Mismatch.");
+    }
+
+    // 5. GAMBIT
+    function initGambit() {
+        document.getElementById('g-gambit').classList.add('active'); document.getElementById('title').innerText="THE GAMBIT";
+        document.getElementById('desc').innerText="Knight's Tour."; resetGambit();
+    }
+    function resetGambit() { gGrid=Array(25).fill(false); gHist=[]; gUsed=false; gPos=rInt(0,25); document.getElementById('btn-undo').disabled=false; document.getElementById('btn-undo').innerText="UNDO (1)"; moveKnight(gPos, false); }
+    function renGambit() {
+        const b=document.getElementById('chess-grid'); b.innerHTML='';
+        for(let i=0;i<25;i++) {
+            let d=document.createElement('div'); d.className='c-cell';
+            if(i===gPos) { d.classList.add('current'); d.innerText='♞'; }
+            else if(gGrid[i]) { d.classList.add('visited'); d.innerText='✓'; }
+            else if(isValidK(gPos, i)) { d.classList.add('valid'); d.onclick=()=>moveKnight(i); }
+            b.appendChild(d);
+        }
+    }
+    function moveKnight(p, h=true) {
+        if(h) gHist.push(gPos); gPos=p; gGrid[p]=true; gVis=gGrid.filter(Boolean).length; renGambit();
+        if(gVis===25) win();
+        else {
+            let can=false; for(let i=0;i<25;i++) if(!gGrid[i]&&isValidK(gPos,i)) can=true;
+            if(!can && gVis<25 && gUsed) { setTimeout(()=>alert("Trapped."),200); setTimeout(resetGambit,1000); }
+        }
+    }
+    function undoGambit() { if(gUsed||!gHist.length) return; let p=gHist.pop(); gGrid[gPos]=false; gPos=p; gUsed=true; document.getElementById('btn-undo').disabled=true; document.getElementById('btn-undo').innerText="USED"; gVis--; renGambit(); }
+    function isValidK(c, d) { const cx=c%5, cy=Math.floor(c/5), dx=d%5, dy=Math.floor(d/5); return ((Math.abs(cx-dx)**2)+(Math.abs(cy-dy)**2))===5; }
+
+    // HELPERS
+    function rInt(min, max) { return Math.floor(Math.random() * (max - min)) + min; }
+    function v(id) { return parseInt(document.getElementById(id).value); }
+</script>
+
+</body>
+</html>
