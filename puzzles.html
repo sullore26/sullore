@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Specialist Protocol v15.0</title>
+    <title>Specialist Protocol v16.0</title>
     <style>
-        :root { --bg: #050505; --panel: #111; --border: #333; --text: #eee; --accent: #ff0055; --success: #00ff88; --highlight: #00d9ff; }
+        :root { --bg: #050505; --panel: #111; --border: #333; --text: #eee; --accent: #ff0055; --success: #00ff88; --highlight: #00d9ff; --warn: #ffcc00; }
         body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; user-select: none; }
         
         .container { background: var(--panel); width: 100%; max-width: 650px; padding: 2rem; border: 1px solid var(--border); box-shadow: 0 0 50px rgba(0,0,0,0.8); border-radius: 8px; text-align: center; }
@@ -21,6 +21,7 @@
         
         button { width: 100%; padding: 15px; background: rgba(255, 0, 85, 0.1); color: var(--accent); border: 1px solid var(--accent); font-weight: bold; cursor: pointer; text-transform: uppercase; margin-top: 15px; transition: 0.2s; }
         button:hover { background: var(--accent); color: #fff; box-shadow: 0 0 20px var(--accent); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; border-color: #555; color: #555; background: transparent; box-shadow: none; }
 
         /* === GAME CONTAINER === */
         .game-stage { display: none; padding: 20px; border: 1px solid #222; background: #080808; margin-bottom: 20px; position: relative; }
@@ -30,7 +31,7 @@
         .chroma-row { display: flex; height: 100px; margin-bottom: 20px; border: 1px solid #444; }
         .chroma-box { flex: 1; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; color: rgba(255,255,255,0.5); }
         input[type=range].chroma-slide { width: 100%; appearance: none; background: #222; height: 6px; margin: 10px 0; border-radius: 3px; }
-            input[type=range].chroma-slide::-webkit-slider-thumb { appearance: none; width: 18px; height: 18px; background: #fff; border-radius: 50%; cursor: pointer; }
+        input[type=range].chroma-slide::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #fff; border-radius: 50%; cursor: pointer; }
 
         /* 2. STACK UI */
         .stack-target { font-size: 3rem; font-weight: bold; color: var(--highlight); margin-bottom: 5px; }
@@ -54,14 +55,14 @@
         input[type=range].sig-knob { width: 100%; appearance: none; background: #333; height: 2px; margin-top: 10px; }
         input[type=range].sig-knob::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: var(--highlight); border-radius: 50%; cursor: pointer; }
 
-        /* 5. GAMBIT UI (UPDATED) */
+        /* 5. GAMBIT UI */
         #chess-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 260px; margin: 0 auto; background: #222; padding: 4px; border: 1px solid #333; }
         .c-cell { width: 48px; height: 48px; background: #111; display: flex; justify-content: center; align-items: center; cursor: default; font-size: 1.5rem; color: #444; transition: 0.2s; border-radius: 4px; }
         
         .c-cell.visited { background: var(--accent); color: #000; }
         .c-cell.current { background: #fff; color: #000; box-shadow: 0 0 15px #fff; z-index: 5; transform: scale(1.1); }
         
-        /* THE FIX: Always show valid moves */
+        /* Valid Moves Always Visible */
         .c-cell.valid { 
             background: rgba(255, 0, 85, 0.15); 
             border: 1px solid var(--accent); 
@@ -72,6 +73,11 @@
             background: rgba(255, 0, 85, 0.4); 
             box-shadow: 0 0 10px var(--accent);
         }
+
+        .gambit-controls { display: flex; gap: 10px; margin-top: 15px; justify-content: center; }
+        .btn-small { margin: 0; padding: 10px; font-size: 0.8rem; width: auto; flex: 1; }
+        .btn-undo { border-color: var(--warn); color: var(--warn); background: rgba(255, 204, 0, 0.1); }
+        .btn-undo:hover { background: var(--warn); color: #000; box-shadow: 0 0 10px var(--warn); }
 
         /* === RESULT === */
         #victory-area { display: none; margin-top: 30px; animation: popIn 0.5s; }
@@ -159,7 +165,11 @@
     <div id="g-gambit" class="game-stage">
         <div id="chess-grid"></div>
         <p style="font-size:0.8rem; color:#666; margin-top:10px;">Visit all 25 squares. Count: <span id="gm-count">0</span>/25</p>
-        <button onclick="resetGambit()" style="margin-top:5px; padding:10px; font-size:0.8rem;">Reset Board</button>
+        
+        <div class="gambit-controls">
+            <button id="btn-undo" class="btn-small btn-undo" onclick="undoGambit()">UNDO (1 LEFT)</button>
+            <button class="btn-small" onclick="resetGambit()">RESET</button>
+        </div>
     </div>
 
     <div id="victory-area">
@@ -184,6 +194,8 @@
     let wTarg={f:0, a:0, p:0};
     // Gambit
     let gGrid=[], gPos=-1, gVis=0;
+    let gHistory=[]; // For undo
+    let gUndoUsed=false; // Limit 1
 
     if(mode === 'solver') {
         document.getElementById('creator').classList.add('hidden');
@@ -300,7 +312,7 @@
     function initSig() {
         document.getElementById('g-signal').classList.add('active');
         document.getElementById('title').innerText = "THE SIGNAL";
-        document.getElementById('desc').innerText = "Match Blue wave to Red.";
+        document.getElementById('desc').innerText = "Match Green wave to Red.";
         wTarg = { f:Math.random()*0.1+0.02, a:Math.random()*40+20, p:Math.random()*6 };
         drawSig();
     }
@@ -319,14 +331,28 @@
         else alert("Signal Mismatch.");
     }
 
-    // 5. GAMBIT
+    // 5. GAMBIT (Updated)
     function initGambit() {
         document.getElementById('g-gambit').classList.add('active');
         document.getElementById('title').innerText = "THE GAMBIT";
         document.getElementById('desc').innerText = "Visit all 25 squares (Knight Moves).";
         resetGambit();
     }
-    function resetGambit() { gGrid=Array(25).fill(false); gPos=rInt(0,25); gVis=0; moveKnight(gPos); }
+    function resetGambit() {
+        gGrid=Array(25).fill(false);
+        gHistory=[]; 
+        gUndoUsed=false;
+        gPos=rInt(0,25); 
+        gVis=0; 
+        
+        // Reset Undo UI
+        const btn = document.getElementById('btn-undo');
+        btn.innerText = "UNDO (1 LEFT)";
+        btn.disabled = false;
+
+        moveKnight(gPos, false); // false = don't save history for initial spawn
+    }
+
     function renGambit() {
         const b=document.getElementById('chess-grid'); b.innerHTML='';
         document.getElementById('gm-count').innerText=gVis;
@@ -337,22 +363,49 @@
             else if(isValidK(gPos, i)) { 
                 d.classList.add('valid'); 
                 d.onclick=()=>moveKnight(i); 
-                d.innerText='•'; /* VISUAL INDICATOR FOR VALID MOVE */
+                d.innerText='•';
             }
             b.appendChild(d);
         }
     }
-    function isValidK(c, d) {
-        const cx=c%5, cy=Math.floor(c/5), dx=d%5, dy=Math.floor(d/5);
-        return ((Math.abs(cx-dx)**2)+(Math.abs(cy-dy)**2))===5;
-    }
-    function moveKnight(p) {
+    
+    function moveKnight(p, saveHist = true) {
+        if(saveHist) gHistory.push(gPos); // Save OLD position
+        
         gPos=p; gGrid[p]=true; gVis++; renGambit();
+        
         if(gVis===25) win();
         else {
             let can=false; for(let i=0; i<25; i++) if(!gGrid[i] && isValidK(gPos, i)) can=true;
-            if(!can && gVis<25) { setTimeout(()=>alert("Trapped. Resetting."), 200); setTimeout(resetGambit, 1000); }
+            if(!can && gVis<25) { 
+                // Only alert if they have no undo left
+                if(gUndoUsed) {
+                    setTimeout(()=>alert("Trapped. Resetting."), 200); 
+                    setTimeout(resetGambit, 1000); 
+                }
+            }
         }
+    }
+
+    function undoGambit() {
+        if(gUndoUsed || gHistory.length === 0) return;
+        
+        const prevPos = gHistory.pop();
+        gGrid[gPos] = false; // Mark current as unvisited
+        gPos = prevPos; // Go back
+        gVis--; // Decrease count
+        
+        gUndoUsed = true;
+        const btn = document.getElementById('btn-undo');
+        btn.innerText = "USED";
+        btn.disabled = true;
+        
+        renGambit();
+    }
+
+    function isValidK(c, d) {
+        const cx=c%5, cy=Math.floor(c/5), dx=d%5, dy=Math.floor(d/5);
+        return ((Math.abs(cx-dx)**2)+(Math.abs(cy-dy)**2))===5;
     }
 
     // HELPERS
@@ -363,4 +416,3 @@
 
 </body>
 </html>
-
